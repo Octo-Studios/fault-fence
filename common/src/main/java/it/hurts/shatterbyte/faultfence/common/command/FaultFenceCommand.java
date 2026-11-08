@@ -44,7 +44,7 @@ public class FaultFenceCommand {
             source.sendSuccess(() -> Component.literal(id), false);
 
         if (FaultFence.CONFIG.writeReports)
-            source.sendSuccess(() -> Component.translatable("faultfence.report.file", report.textFile().toString()), false);
+            source.sendSuccess(() -> Component.translatable("faultfence.report.file", report.jsonFile().toString()), false);
 
         return issueCount;
     }

@@ -150,8 +150,8 @@ public class LoadReport {
         path.remove(issue.node());
     }
 
-    public Path textFile() {
-        return FaultFence.reportDirectory.resolve(scope + "-" + id + ".txt");
+    public Path jsonFile() {
+        return FaultFence.reportDirectory.resolve(scope + "-" + id + ".json");
     }
 
     public synchronized void save() {
@@ -169,7 +169,7 @@ public class LoadReport {
         }
     }
 
-    private synchronized Output snapshot() {
+    private synchronized Snapshot snapshot() {
         saveQueued = false;
 
         var affected = new LinkedHashSet<String>();
@@ -187,36 +187,19 @@ public class LoadReport {
             relevantReferences.put(node, Set.copyOf(references.getOrDefault(node, Set.of())));
         });
 
-        var snapshot = new Snapshot(scope, startedAt, finishedAt, status, failure, List.copyOf(issues.values()),
+        return new Snapshot(scope, startedAt, finishedAt, status, failure, List.copyOf(issues.values()),
                 Map.copyOf(relevantSources), Map.copyOf(relevantReferences));
-        var text = new StringBuilder("Fault Fence ").append(scope).append(" report\n")
-                .append("Started: ").append(startedAt).append("\nFinished: ").append(finishedAt)
-                .append("\nStatus: ").append(status).append("\nFailure: ").append(failure).append('\n');
-
-        for (var node : issues.values().stream().map(Issue::node).distinct().toList())
-            text.append('\n').append(String.join("\n", explain(node))).append('\n');
-
-        for (var issue : issues.values()) {
-            if (!issue.exception().isEmpty())
-                text.append('\n').append(issue.node()).append('\n').append(issue.exception());
-        }
-
-        return new Output(snapshot, text.toString());
     }
 
     private void write() {
         try {
-            var output = snapshot();
-            var json = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create().toJson(output.snapshot());
+            var json = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create().toJson(snapshot());
 
             Files.createDirectories(FaultFence.reportDirectory);
-            Files.writeString(FaultFence.reportDirectory.resolve(scope + "-" + id + ".json"), json, StandardCharsets.UTF_8);
-            Files.writeString(textFile(), output.text(), StandardCharsets.UTF_8);
+            Files.writeString(jsonFile(), json, StandardCharsets.UTF_8);
 
-            if (Reports.latest() == this) {
+            if (Reports.latest() == this)
                 Files.writeString(FaultFence.reportDirectory.resolve("latest-" + scope + ".json"), json, StandardCharsets.UTF_8);
-                Files.writeString(FaultFence.reportDirectory.resolve("latest-" + scope + ".txt"), output.text(), StandardCharsets.UTF_8);
-            }
         } catch (IOException | RuntimeException error) {
             FaultFence.LOGGER.error("Couldn't write Fault Fence report", error);
         }
@@ -233,9 +216,6 @@ public class LoadReport {
     }
 
     private record Source(String file, String pack) {
-    }
-
-    private record Output(Snapshot snapshot, String text) {
     }
 
     private record Snapshot(String scope, String startedAt, String finishedAt, String status, String failure, List<Issue> issues,

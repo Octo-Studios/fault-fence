@@ -39,7 +39,7 @@ public class FaultFenceConfig extends ShatterConfig {
     public boolean recipePriorities = true;
 
     @Comment("""
-            Write text and JSON reports to logs/faultfence/.
+            Write JSON reports to logs/faultfence/.
             When false, normal logging and the in-memory report remain available.""")
     public boolean writeReports = true;
 
