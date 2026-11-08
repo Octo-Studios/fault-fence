@@ -1,5 +1,6 @@
 package it.hurts.shatterbyte.faultfence.common.report;
 
+import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import it.hurts.shatterbyte.faultfence.common.FaultFence;
 import it.hurts.shatterbyte.faultfence.common.config.RecoveryCategory;
@@ -10,8 +11,8 @@ import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -19,9 +20,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
 
 public class LoadReport {
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
     private static final ExecutorService WRITER = Executors.newSingleThreadExecutor(Thread.ofPlatform().name("Fault Fence reports").daemon().factory());
 
     static {
@@ -92,70 +93,20 @@ public class LoadReport {
         return issues.size();
     }
 
-    public synchronized String status() {
-        return status;
-    }
-
     public String scope() {
         return scope;
     }
 
-    public synchronized List<String> ids() {
-        return issues.values().stream().map(Issue::id).distinct().sorted().toList();
+    public String fileName() {
+        return scope + "-" + id + ".json";
     }
 
-    public synchronized Map<RecoveryCategory, Long> counts() {
-        return issues.values().stream().collect(Collectors.groupingBy(Issue::category, LinkedHashMap::new, Collectors.counting()));
-    }
-
-    public synchronized List<String> explain(String id) {
-        var lines = new ArrayList<String>();
-        var selected = issues.values().stream().filter(issue -> issue.id().equals(id) || issue.node().equals(id)).toList();
-
-        for (var issue : selected) {
-            lines.add(issue.node() + " [" + issue.action() + "]");
-
-            if (!issue.file().isEmpty() || !issue.pack().isEmpty())
-                lines.add("File: " + issue.file() + "; pack: " + issue.pack());
-            else
-                for (var source : sources.getOrDefault(issue.node(), Set.of()))
-                    lines.add("Contributing file: " + source.file() + "; pack: " + source.pack());
-
-            lines.add(issue.message());
-            explainCauses(issue, "", new LinkedHashSet<>(), lines);
-        }
-
-        return lines;
-    }
-
-    private void explainCauses(Issue issue, String indent, Set<String> path, List<String> lines) {
-        if (!path.add(issue.node())) {
-            lines.add(indent + "Cycle: " + String.join(" -> ", path) + " -> " + issue.node());
-
-            return;
-        }
-
-        for (var cause : issue.causedBy()) {
-            lines.add(indent + "Depends on: " + cause);
-
-            for (var source : sources.getOrDefault(cause, Set.of()))
-                lines.add(indent + "  File: " + source.file() + "; pack: " + source.pack());
-
-            issues.values().stream().filter(candidate -> candidate.node().equals(cause)).forEach(candidate -> {
-                lines.add(indent + "  " + candidate.action() + ": " + candidate.message());
-                explainCauses(candidate, indent + "  ", path, lines);
-            });
-        }
-
-        path.remove(issue.node());
-    }
-
-    public Path jsonFile() {
-        return FaultFence.reportDirectory.resolve(scope + "-" + id + ".json");
+    public String json() {
+        return GSON.toJson(snapshot());
     }
 
     public synchronized void save() {
-        if (!FaultFence.CONFIG.writeReports || saveQueued)
+        if (!FaultFence.CONFIG.writeReports || saveQueued || (issues.isEmpty() && failure.isEmpty()))
             return;
 
         saveQueued = true;
@@ -170,8 +121,6 @@ public class LoadReport {
     }
 
     private synchronized Snapshot snapshot() {
-        saveQueued = false;
-
         var affected = new LinkedHashSet<String>();
 
         issues.values().forEach(issue -> {
@@ -193,16 +142,30 @@ public class LoadReport {
 
     private void write() {
         try {
-            var json = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create().toJson(snapshot());
+            Snapshot output;
+
+            synchronized (this) {
+                saveQueued = false;
+                output = snapshot();
+            }
+
+            var json = GSON.toJson(output);
 
             Files.createDirectories(FaultFence.reportDirectory);
-            Files.writeString(jsonFile(), json, StandardCharsets.UTF_8);
+            writeFile(FaultFence.reportDirectory.resolve(fileName()), json);
 
             if (Reports.latest() == this)
-                Files.writeString(FaultFence.reportDirectory.resolve("latest-" + scope + ".json"), json, StandardCharsets.UTF_8);
+                writeFile(FaultFence.reportDirectory.resolve("latest-" + scope + ".json"), json);
         } catch (IOException | RuntimeException error) {
             FaultFence.LOGGER.error("Couldn't write Fault Fence report", error);
         }
+    }
+
+    private void writeFile(Path file, String json) throws IOException {
+        var temporary = file.resolveSibling(file.getFileName() + ".tmp");
+
+        Files.writeString(temporary, json, StandardCharsets.UTF_8);
+        Files.move(temporary, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
     }
 
     private record IssueKey(String node, String file, String pack, ReportAction action, String message, List<String> causedBy) {

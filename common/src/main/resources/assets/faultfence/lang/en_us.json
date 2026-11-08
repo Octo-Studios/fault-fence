@@ -1,7 +1,6 @@
 {
-  "faultfence.report.notification": "[Fault Fence] Pack loading reported %s problems. Details: /faultfence report",
-  "faultfence.report.summary": "[Fault Fence] Last load: %s. Problems: %s.",
-  "faultfence.report.file": "Full report: %s",
-  "faultfence.report.none": "Fault Fence has no report for this scope yet.",
-  "faultfence.report.unknown": "No reported problems match %s. Specify the full type and ID to distinguish resources."
+  "faultfence.viewer.link": "Local viewer: %s",
+  "faultfence.viewer.open": "Open report viewer",
+  "faultfence.viewer.failed": "Couldn't start the report viewer. Check the server log for details.",
+  "faultfence.report.notification": "Pack loading reported %s problems. Details: %s"
 }
