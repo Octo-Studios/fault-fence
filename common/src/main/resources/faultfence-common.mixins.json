@@ -1,0 +1,28 @@
+{
+  "required": true,
+  "package": "it.hurts.shatterbyte.faultfence.common.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "minVersion": "0.8",
+  "mixins": [
+    "CommandsMixin",
+    "CompositeLootItemConditionAccessor",
+    "EntityPredicateAccessor",
+    "LootPoolEntriesMixin",
+    "MinecraftServerMixin",
+    "MultiPackResourceManagerMixin",
+    "PendingRegistrationMixin",
+    "PlayerAdvancementsMixin",
+    "PlayerListMixin",
+    "RegistryLoadTaskMixin",
+    "ReloadableServerResourcesMixin",
+    "ResourceMixin",
+    "ServerAdvancementManagerMixin",
+    "SimpleCriterionTriggerMixin",
+    "TagElementLookupMixin",
+    "TagEntryAccessor",
+    "TagLoaderMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

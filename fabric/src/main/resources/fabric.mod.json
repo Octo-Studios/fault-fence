@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "${mod_id}",
+  "version": "${version}",
+  "name": "${mod_name}",
+  "description": "${description}",
+  "authors": [
+    "${mod_author}"
+  ],
+  "license": "${license}",
+  "environment": "*",
+  "entrypoints": {
+    "client": [
+      "${group}.fabric.FaultFenceFabric"
+    ],
+    "server": [
+      "${group}.fabric.FaultFenceFabric"
+    ]
+  },
+  "mixins": [
+    "${mod_id}-common.mixins.json",
+    "${mod_id}-fabric.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${fabric_loader_version}",
+    "fabric-api": "*",
+    "minecraft": "~${minecraft_version}",
+    "java": ">=${java_version}",
+    "shatterlib": ">=0.7.0-beta.4"
+  }
+}

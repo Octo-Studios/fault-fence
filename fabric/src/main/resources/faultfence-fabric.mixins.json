@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "it.hurts.shatterbyte.faultfence.fabric.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "minVersion": "0.8",
+  "mixins": [
+    "RegistryDataLoaderMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

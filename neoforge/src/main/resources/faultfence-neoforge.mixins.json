@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "it.hurts.shatterbyte.faultfence.neoforge.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "minVersion": "0.8",
+  "mixins": [
+    "RecipePriorityManagerMixin",
+    "RegistryDataLoaderMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
