@@ -1,0 +1,9 @@
+{
+  "faultfence.report.notification": "Загрузка данных: %s. В отчёте: пропущено ресурсов — %s, записей — %s; пустых записей — %s; откатов к нижним пакам — %s; обходов ссылок — %s; наблюдений — %s. Подробности в журнале сервера.",
+  "faultfence.report.outcome.loading": "Выполняется",
+  "faultfence.report.outcome.clean": "Завершена без выявленных проблем",
+  "faultfence.report.outcome.fallback": "Завершена с использованием паков более низкого приоритета",
+  "faultfence.report.outcome.modified": "Завершена с пропусками или изменениями данных",
+  "faultfence.report.outcome.observed": "Завершена с выявленными проблемами без восстановления",
+  "faultfence.report.outcome.failed": "Не удалась"
+}

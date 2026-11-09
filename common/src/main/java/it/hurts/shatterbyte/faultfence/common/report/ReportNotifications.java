@@ -3,7 +3,6 @@ package it.hurts.shatterbyte.faultfence.common.report;
 import it.hurts.shatterbyte.faultfence.common.FaultFence;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.Commands;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.Locale;
@@ -20,8 +19,10 @@ public class ReportNotifications {
         if (summary.issueCount() == 0 && !summary.outcome().equals("FAILED"))
             return;
 
-        player.sendSystemMessage(ReportMessages.message("faultfence.report.notification",
-                Component.translatable("faultfence.report.outcome." + summary.outcome().toLowerCase(Locale.ROOT))
+        var language = player.clientInformation().language();
+
+        player.sendSystemMessage(ReportMessages.message(language, "faultfence.report.notification",
+                ReportMessages.translate(language, "faultfence.report.outcome." + summary.outcome().toLowerCase(Locale.ROOT))
                         .withStyle(summary.outcome().equals("FAILED") ? ChatFormatting.RED : ChatFormatting.GOLD),
                 summary.actions().get(ReportAction.SKIPPED_RESOURCE), summary.actions().get(ReportAction.SKIPPED_ENTRY),
                 summary.actions().get(ReportAction.USED_EMPTY_ENTRY), summary.actions().get(ReportAction.USED_LOWER_RESOURCE),
