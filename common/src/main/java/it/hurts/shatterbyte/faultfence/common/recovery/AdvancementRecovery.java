@@ -7,6 +7,7 @@ import com.mojang.serialization.JsonOps;
 import it.hurts.shatterbyte.faultfence.common.FaultFence;
 import it.hurts.shatterbyte.faultfence.common.config.RecoveryCategory;
 import it.hurts.shatterbyte.faultfence.common.mixin.CompositeLootItemConditionAccessor;
+import it.hurts.shatterbyte.faultfence.common.mixin.ContextAwarePredicateAccessor;
 import it.hurts.shatterbyte.faultfence.common.mixin.EntityPredicateAccessor;
 import it.hurts.shatterbyte.faultfence.common.report.ReportAction;
 import it.hurts.shatterbyte.faultfence.common.report.Reports;
@@ -14,18 +15,17 @@ import it.hurts.shatterbyte.faultfence.common.report.ResourceOrigin;
 import net.minecraft.advancements.Advancement;
 import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.advancements.DisplayInfo;
+import net.minecraft.advancements.predicates.ContextAwarePredicate;
 import net.minecraft.advancements.predicates.entity.EntityPredicate;
 import net.minecraft.advancements.predicates.entity.PlayerPredicate;
 import net.minecraft.advancements.triggers.SimpleCriterionTrigger;
 import net.minecraft.core.ClientAsset;
-import net.minecraft.core.Holder;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.HolderSet;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.PlayerAdvancements;
 import net.minecraft.server.ServerAdvancementManager;
+import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.world.level.storage.loot.LootContext;
 import net.minecraft.world.level.storage.loot.predicates.AllOfCondition;
 import net.minecraft.world.level.storage.loot.predicates.AnyOfCondition;
@@ -49,7 +49,7 @@ public class AdvancementRecovery {
     private static final Map<Exception, Failure> FAILURES = Collections.synchronizedMap(new WeakHashMap<>());
     private static final Map<Object, Recovery> RECOVERIES = Collections.synchronizedMap(new WeakHashMap<>());
 
-    public static <T> Either<T, Exception> read(ResourceKey<T> key, ResourceOrigin origin, Supplier<Either<T, Exception>> reader) {
+    public static <T> Either<T, Exception> read(ResourceKey<?> key, ResourceOrigin origin, Supplier<Either<T, Exception>> reader) {
         if (!key.isFor(Registries.ADVANCEMENT) || !RecoveryCategory.ADVANCEMENTS.enabled())
             return reader.get();
 
@@ -83,15 +83,15 @@ public class AdvancementRecovery {
         PARENT.set(parent == null ? Optional.empty() : Identifier.CODEC.parse(JsonOps.INSTANCE, parent).result());
     }
 
-    public static void skipped(HolderLookup.RegistryLookup<?> registry, Identifier id, Exception error) {
+    public static void skipped(ResourceManager manager, Identifier id, Exception error) {
         var failure = FAILURES.get(error);
 
         if (failure != null)
-            RECOVERIES.computeIfAbsent(registry, key -> new Recovery()).failures.put(id, failure);
+            RECOVERIES.computeIfAbsent(manager, key -> new Recovery()).failures.put(id, failure);
     }
 
-    public static ImmutableMap<Identifier, AdvancementHolder> prepare(ServerAdvancementManager manager, HolderLookup.Provider registries, ImmutableMap<Identifier, AdvancementHolder> advancements) {
-        var pending = RECOVERIES.get(registries.lookupOrThrow(Registries.ADVANCEMENT));
+    public static ImmutableMap<Identifier, AdvancementHolder> prepare(ServerAdvancementManager manager, ResourceManager resources, ImmutableMap<Identifier, AdvancementHolder> advancements) {
+        var pending = RECOVERIES.get(resources);
 
         if (!RecoveryCategory.ADVANCEMENTS.enabled() || pending == null)
             return advancements;
@@ -166,11 +166,11 @@ public class AdvancementRecovery {
                 if (!(criterion.triggerInstance() instanceof SimpleCriterionTrigger.SimpleInstance instance) || instance.player().isEmpty())
                     return;
 
-                var condition = instance.player().get().value();
-                var replacement = condition(recovery, holder.id(), condition, Collections.newSetFromMap(new IdentityHashMap<>()));
+                var terms = ((ContextAwarePredicateAccessor) instance.player().get()).faultfence$conditions();
+                var replacements = terms.stream().map(term -> condition(recovery, holder.id(), term, Collections.newSetFromMap(new IdentityHashMap<>()))).toList();
 
-                if (replacement != condition)
-                    recovery.conditions.put(new PlayerAdvancements.TriggerInstanceKey(holder, name), replacement);
+                if (!replacements.equals(terms))
+                    recovery.conditions.put(new PlayerAdvancements.TriggerInstanceKey(holder, name), new ContextAwarePredicate(replacements));
             });
         }
 
@@ -183,12 +183,12 @@ public class AdvancementRecovery {
         var advancement = holder.value();
         var display = advancement.display();
 
-        if (parent.isEmpty() && display.isPresent() && display.get().background().isEmpty()) {
+        if (parent.isEmpty() && display.isPresent() && display.get().getBackground().isEmpty()) {
             var info = display.get();
 
-            display = Optional.of(new DisplayInfo(info.icon(), info.title(), info.description(),
+            display = Optional.of(new DisplayInfo(info.getIcon(), info.getTitle(), info.getDescription(),
                     Optional.of(new ClientAsset.ResourceTexture(Identifier.withDefaultNamespace("gui/advancements/backgrounds/stone"))),
-                    info.type(), info.showToast(), info.announceToChat(), info.hidden()));
+                    info.getType(), info.shouldShowToast(), info.shouldAnnounceChat(), info.isHidden()));
         }
 
         return new AdvancementHolder(holder.id(), new Advancement(parent, display, advancement.rewards(), advancement.criteria(),
@@ -227,21 +227,17 @@ public class AdvancementRecovery {
                 return condition;
 
             var terms = ((CompositeLootItemConditionAccessor) condition).faultfence$terms();
-            var replacements = terms.stream().map(term -> {
-                var replacement = condition(recovery, owner, term.value(), path);
+            var replacements = terms.stream().map(term -> condition(recovery, owner, term, path)).toList();
 
-                return replacement == term.value() ? term : Holder.direct(replacement);
-            }).toList();
-
-            if (replacements.equals(terms.stream().toList()))
+            if (replacements.equals(terms))
                 return condition;
 
             if (condition instanceof AllOfCondition)
-                return AllOfCondition.allOf(HolderSet.direct(replacements));
+                return AllOfCondition.allOf(replacements);
 
             var builder = AnyOfCondition.anyOf();
 
-            replacements.forEach(builder::or);
+            replacements.forEach(replacement -> builder.or(() -> replacement));
 
             return builder.build();
         } finally {
@@ -258,7 +254,7 @@ public class AdvancementRecovery {
         FaultFence.LOGGER.warn("{} {} in advancement {}", message, missing, owner);
     }
 
-    public static LootItemCondition condition(ServerAdvancementManager manager, PlayerAdvancements.TriggerInstanceKey key, LootItemCondition original) {
+    public static ContextAwarePredicate condition(ServerAdvancementManager manager, PlayerAdvancements.TriggerInstanceKey key, ContextAwarePredicate original) {
         var recovery = RECOVERIES.get(manager);
 
         return recovery == null ? original : recovery.conditions.getOrDefault(key, original);
@@ -269,6 +265,6 @@ public class AdvancementRecovery {
 
     private static final class Recovery {
         private final Map<Identifier, Failure> failures = new LinkedHashMap<>();
-        private final Map<PlayerAdvancements.TriggerInstanceKey, LootItemCondition> conditions = new LinkedHashMap<>();
+        private final Map<PlayerAdvancements.TriggerInstanceKey, ContextAwarePredicate> conditions = new LinkedHashMap<>();
     }
 }

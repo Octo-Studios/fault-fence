@@ -16,6 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 @Mixin(MultiPackResourceManager.class)
 public abstract class MultiPackResourceManagerMixin {
@@ -35,12 +36,12 @@ public abstract class MultiPackResourceManagerMixin {
     }
 
     @Inject(method = "listResources", at = @At("RETURN"))
-    private void faultfence$trackResources(String directory, ResourceManager.Selector selector, CallbackInfoReturnable<Map<Identifier, Resource>> cir) {
+    private void faultfence$trackResources(String directory, Predicate<Identifier> selector, CallbackInfoReturnable<Map<Identifier, Resource>> cir) {
         cir.getReturnValue().forEach((id, resource) -> Reports.attach((ResourceManager) this, id.toString(), resource));
     }
 
     @Inject(method = "listResourceStacks", at = @At("RETURN"))
-    private void faultfence$trackStacks(String directory, ResourceManager.Selector selector, CallbackInfoReturnable<Map<Identifier, List<Resource>>> cir) {
+    private void faultfence$trackStacks(String directory, Predicate<Identifier> selector, CallbackInfoReturnable<Map<Identifier, List<Resource>>> cir) {
         cir.getReturnValue().forEach((id, resources) -> resources.forEach(resource -> Reports.attach((ResourceManager) this, id.toString(), resource)));
     }
 }

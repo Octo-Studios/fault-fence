@@ -22,7 +22,7 @@ public class PackFallbacks {
     private static final ThreadLocal<Attempt> ATTEMPT = new ThreadLocal<>();
     private static final ThreadLocal<Selection> SELECTED = new ThreadLocal<>();
 
-    public static <T> Either<T, Exception> read(ResourceKey<T> key, Resource resource, Function<Resource, Either<T, Exception>> reader) {
+    public static <T> Either<T, Exception> read(ResourceKey<?> key, Resource resource, Function<Resource, Either<T, Exception>> reader) {
         SELECTED.remove();
 
         if (!FaultFence.CONFIG.fallbackToLowerPacks)

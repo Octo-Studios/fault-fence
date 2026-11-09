@@ -5,6 +5,7 @@
   "minVersion": "0.8",
   "mixins": [
     "CompositeLootItemConditionAccessor",
+    "ContextAwarePredicateAccessor",
     "EntityPredicateAccessor",
     "LootPoolEntriesMixin",
     "MinecraftServerMixin",
@@ -12,7 +13,6 @@
     "PendingRegistrationMixin",
     "PlayerAdvancementsMixin",
     "PlayerListMixin",
-    "RegistryLoadTaskMixin",
     "ReloadableServerResourcesMixin",
     "ResourceMixin",
     "ServerAdvancementManagerMixin",
