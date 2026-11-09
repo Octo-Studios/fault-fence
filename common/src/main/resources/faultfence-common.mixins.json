@@ -6,7 +6,6 @@
   "mixins": [
     "CompositeLootItemConditionAccessor",
     "ContextAwarePredicateAccessor",
-    "EntityPredicateAccessor",
     "LootPoolEntriesMixin",
     "MinecraftServerMixin",
     "MultiPackResourceManagerMixin",

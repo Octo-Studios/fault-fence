@@ -8,22 +8,21 @@ import it.hurts.shatterbyte.faultfence.common.FaultFence;
 import it.hurts.shatterbyte.faultfence.common.config.RecoveryCategory;
 import it.hurts.shatterbyte.faultfence.common.mixin.CompositeLootItemConditionAccessor;
 import it.hurts.shatterbyte.faultfence.common.mixin.ContextAwarePredicateAccessor;
-import it.hurts.shatterbyte.faultfence.common.mixin.EntityPredicateAccessor;
 import it.hurts.shatterbyte.faultfence.common.report.ReportAction;
 import it.hurts.shatterbyte.faultfence.common.report.Reports;
 import it.hurts.shatterbyte.faultfence.common.report.ResourceOrigin;
 import net.minecraft.advancements.Advancement;
 import net.minecraft.advancements.AdvancementHolder;
+import net.minecraft.advancements.CriterionTrigger;
 import net.minecraft.advancements.DisplayInfo;
-import net.minecraft.advancements.predicates.ContextAwarePredicate;
-import net.minecraft.advancements.predicates.entity.EntityPredicate;
-import net.minecraft.advancements.predicates.entity.PlayerPredicate;
-import net.minecraft.advancements.triggers.SimpleCriterionTrigger;
+import net.minecraft.advancements.criterion.ContextAwarePredicate;
+import net.minecraft.advancements.criterion.EntityPredicate;
+import net.minecraft.advancements.criterion.PlayerPredicate;
+import net.minecraft.advancements.criterion.SimpleCriterionTrigger;
 import net.minecraft.core.ClientAsset;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.server.PlayerAdvancements;
 import net.minecraft.server.ServerAdvancementManager;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.world.level.storage.loot.LootContext;
@@ -170,7 +169,7 @@ public class AdvancementRecovery {
                 var replacements = terms.stream().map(term -> condition(recovery, holder.id(), term, Collections.newSetFromMap(new IdentityHashMap<>()))).toList();
 
                 if (!replacements.equals(terms))
-                    recovery.conditions.put(new PlayerAdvancements.TriggerInstanceKey(holder, name), new ContextAwarePredicate(replacements));
+                    recovery.conditions.put(new CriterionTrigger.Listener<>(criterion.triggerInstance(), holder, name), ContextAwarePredicate.create(replacements.toArray(LootItemCondition[]::new)));
             });
         }
 
@@ -202,9 +201,9 @@ public class AdvancementRecovery {
         try {
             if (condition instanceof LootItemEntityPropertyCondition property
                     && property.entityTarget() == LootContext.EntityTarget.THIS && property.predicate().isPresent()) {
-                var parts = new LinkedHashMap<>(((EntityPredicateAccessor) (Object) property.predicate().get()).faultfence$parts());
+                var predicate = property.predicate().get();
 
-                if (!(parts.get(PlayerPredicate.CODEC) instanceof PlayerPredicate player))
+                if (!(predicate.subPredicate().orElse(null) instanceof PlayerPredicate player))
                     return condition;
 
                 var requirements = new LinkedHashMap<>(player.advancements());
@@ -217,10 +216,13 @@ public class AdvancementRecovery {
                 if (requirements.size() == player.advancements().size())
                     return condition;
 
-                parts.put(PlayerPredicate.CODEC, new PlayerPredicate(player.level(), player.food(), player.gameType(), player.stats(),
-                        player.recipes(), requirements, player.lookingAt(), player.input()));
+                var replacement = new PlayerPredicate(player.level(), player.food(), player.gameType(), player.stats(),
+                        player.recipes(), requirements, player.lookingAt(), player.input());
 
-                return new LootItemEntityPropertyCondition(Optional.of(new EntityPredicate(parts)), property.entityTarget());
+                return new LootItemEntityPropertyCondition(Optional.of(new EntityPredicate(predicate.entityType(), predicate.distanceToPlayer(),
+                        predicate.movement(), predicate.location(), predicate.effects(), predicate.nbt(), predicate.flags(), predicate.equipment(),
+                        Optional.of(replacement), predicate.periodicTick(), predicate.vehicle(), predicate.passenger(), predicate.targetedEntity(),
+                        predicate.team(), predicate.slots(), predicate.components())), property.entityTarget());
             }
 
             if (!(condition instanceof AllOfCondition) && !(condition instanceof AnyOfCondition))
@@ -254,7 +256,7 @@ public class AdvancementRecovery {
         FaultFence.LOGGER.warn("{} {} in advancement {}", message, missing, owner);
     }
 
-    public static ContextAwarePredicate condition(ServerAdvancementManager manager, PlayerAdvancements.TriggerInstanceKey key, ContextAwarePredicate original) {
+    public static ContextAwarePredicate condition(ServerAdvancementManager manager, CriterionTrigger.Listener<?> key, ContextAwarePredicate original) {
         var recovery = RECOVERIES.get(manager);
 
         return recovery == null ? original : recovery.conditions.getOrDefault(key, original);
@@ -265,6 +267,6 @@ public class AdvancementRecovery {
 
     private static final class Recovery {
         private final Map<Identifier, Failure> failures = new LinkedHashMap<>();
-        private final Map<PlayerAdvancements.TriggerInstanceKey, ContextAwarePredicate> conditions = new LinkedHashMap<>();
+        private final Map<CriterionTrigger.Listener<?>, ContextAwarePredicate> conditions = new LinkedHashMap<>();
     }
 }

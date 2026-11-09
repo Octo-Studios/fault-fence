@@ -1,6 +1,6 @@
 package it.hurts.shatterbyte.faultfence.common.mixin;
 
-import net.minecraft.advancements.predicates.ContextAwarePredicate;
+import net.minecraft.advancements.criterion.ContextAwarePredicate;
 import net.minecraft.world.level.storage.loot.predicates.LootItemCondition;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
