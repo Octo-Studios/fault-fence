@@ -101,10 +101,6 @@ public class LoadReport {
         return scope + "-" + id + ".json";
     }
 
-    public String json() {
-        return GSON.toJson(snapshot());
-    }
-
     public synchronized void save() {
         if (!FaultFence.CONFIG.writeReports || saveQueued || (issues.isEmpty() && failure.isEmpty()))
             return;

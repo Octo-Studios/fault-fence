@@ -1,6 +1,3 @@
 {
-  "faultfence.viewer.link": "Local viewer: %s",
-  "faultfence.viewer.open": "Open report viewer",
-  "faultfence.viewer.failed": "Couldn't start the report viewer. Check the server log for details.",
-  "faultfence.report.notification": "Pack loading reported %s problems. Details: %s"
+  "faultfence.report.notification": "Pack loading reported %s problems. Check the server log for details."
 }
