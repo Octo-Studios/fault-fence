@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Instant;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -89,8 +90,43 @@ public class LoadReport {
         save();
     }
 
-    public synchronized int issueCount() {
-        return issues.size();
+    public synchronized Summary summary() {
+        var actions = new EnumMap<ReportAction, Integer>(ReportAction.class);
+        var fallbackFiles = new LinkedHashSet<String>();
+        var replacedSources = new LinkedHashSet<Source>();
+
+        for (var action : ReportAction.values())
+            actions.put(action, 0);
+
+        for (var issue : issues.values()) {
+            actions.merge(issue.action(), 1, Integer::sum);
+
+            if (issue.action() == ReportAction.USED_LOWER_RESOURCE) {
+                fallbackFiles.add(issue.file());
+                replacedSources.add(new Source(issue.file(), issue.pack()));
+            }
+        }
+
+        var modified = issues.values().stream().anyMatch(issue -> switch (issue.action()) {
+            case SKIPPED_RESOURCE -> !fallbackFiles.contains(issue.file());
+            case SKIPPED_ENTRY, USED_EMPTY_ENTRY -> !replacedSources.contains(new Source(issue.file(), issue.pack()));
+            case BYPASSED_REFERENCE -> true;
+            case USED_LOWER_RESOURCE, OBSERVED -> false;
+        });
+        var outcome = status;
+
+        if (status.equals("COMPLETED")) {
+            if (modified)
+                outcome = "MODIFIED";
+            else if (actions.get(ReportAction.USED_LOWER_RESOURCE) > 0)
+                outcome = "FALLBACK";
+            else if (actions.get(ReportAction.OBSERVED) > 0)
+                outcome = "OBSERVED";
+            else
+                outcome = "CLEAN";
+        }
+
+        return new Summary(outcome, issues.size(), Map.copyOf(actions));
     }
 
     public String scope() {
@@ -132,7 +168,7 @@ public class LoadReport {
             relevantReferences.put(node, Set.copyOf(references.getOrDefault(node, Set.of())));
         });
 
-        return new Snapshot(scope, startedAt, finishedAt, status, failure, List.copyOf(issues.values()),
+        return new Snapshot(scope, startedAt, finishedAt, status, summary(), failure, List.copyOf(issues.values()),
                 Map.copyOf(relevantSources), Map.copyOf(relevantReferences));
     }
 
@@ -176,10 +212,13 @@ public class LoadReport {
         }
     }
 
+    public record Summary(String outcome, int issueCount, Map<ReportAction, Integer> actions) {
+    }
+
     private record Source(String file, String pack) {
     }
 
-    private record Snapshot(String scope, String startedAt, String finishedAt, String status, String failure, List<Issue> issues,
+    private record Snapshot(String scope, String startedAt, String finishedAt, String status, Summary summary, String failure, List<Issue> issues,
             Map<String, Set<Source>> sources, Map<String, Set<String>> references) {
     }
 }

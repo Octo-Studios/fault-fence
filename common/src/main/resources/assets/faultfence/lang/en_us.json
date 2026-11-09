@@ -1,3 +1,9 @@
 {
-  "faultfence.report.notification": "Pack loading reported %s problems. Check the server log for details."
+  "faultfence.report.notification": "Data loading: %s. Reported: %s skipped resources, %s skipped entries, %s empty entries, %s lower-pack fallbacks, %s bypassed references, %s observations. Check the server log for details.",
+  "faultfence.report.outcome.loading": "Loading",
+  "faultfence.report.outcome.clean": "Completed without reported problems",
+  "faultfence.report.outcome.fallback": "Completed using lower-priority packs",
+  "faultfence.report.outcome.modified": "Completed with skipped or modified data",
+  "faultfence.report.outcome.observed": "Completed with reported problems and no recovery actions",
+  "faultfence.report.outcome.failed": "Failed"
 }
