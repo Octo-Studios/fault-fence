@@ -102,7 +102,7 @@ public class LoadReport {
     }
 
     public synchronized void save() {
-        if (!FaultFence.CONFIG.writeReports || saveQueued || (issues.isEmpty() && failure.isEmpty()))
+        if (!FaultFence.CONFIG.writeReports || saveQueued)
             return;
 
         saveQueued = true;
@@ -148,7 +148,9 @@ public class LoadReport {
             var json = GSON.toJson(output);
 
             Files.createDirectories(FaultFence.reportDirectory);
-            writeFile(FaultFence.reportDirectory.resolve(fileName()), json);
+
+            if (!output.issues().isEmpty() || !output.failure().isEmpty())
+                writeFile(FaultFence.reportDirectory.resolve(fileName()), json);
 
             if (Reports.latest() == this)
                 writeFile(FaultFence.reportDirectory.resolve("latest-" + scope + ".json"), json);
