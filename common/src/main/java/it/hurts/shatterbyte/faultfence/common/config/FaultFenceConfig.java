@@ -24,14 +24,16 @@ public class FaultFenceConfig extends ShatterConfig {
     public boolean advancements = true;
 
     @Comment("""
-            Recover minecraft:item loot entries with missing items according to removeMissingLootEntries.
+            Handle minecraft:item loot entries with missing items according to missingLootItemMode.
             When fallbackToLowerPacks is enabled, a valid whole resource from a lower-priority pack takes precedence.""")
     public boolean lootEntries = true;
 
     @Comment("""
-            When lootEntries is enabled: true removes missing-item entries; false replaces them with minecraft:empty while preserving their weight.
-            Removing entries may increase the drop chances of the remaining outcomes.""")
-    public boolean removeMissingLootEntries = true;
+            When lootEntries is enabled:
+            REMOVE_ENTRY removes missing-item entries and may increase the drop chances of the remaining outcomes.
+            REPLACE_WITH_EMPTY uses minecraft:empty while preserving the entry's weight, quality, condition and modifier.
+            REJECT_RESOURCE rejects the whole resource if no valid lower-priority version is selected.""")
+    public MissingLootItemMode missingLootItemMode = MissingLootItemMode.REMOVE_ENTRY;
 
     @Comment("""
             NeoForge only: an invalid recipe_priorities.json entry does not prevent later valid priorities from loading.

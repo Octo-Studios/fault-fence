@@ -5,6 +5,7 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
 import it.hurts.shatterbyte.faultfence.common.FaultFence;
+import it.hurts.shatterbyte.faultfence.common.config.MissingLootItemMode;
 import it.hurts.shatterbyte.faultfence.common.config.RecoveryCategory;
 import it.hurts.shatterbyte.faultfence.common.report.ReportAction;
 import it.hurts.shatterbyte.faultfence.common.report.Reports;
@@ -19,7 +20,7 @@ import java.util.Optional;
 public record MissingLootItemCodec(Codec<LootPoolEntryContainer> delegate) implements Codec<LootPoolEntryContainer> {
     @Override
     public <T> DataResult<Pair<LootPoolEntryContainer, T>> decode(DynamicOps<T> ops, T input) {
-        if (!RecoveryCategory.LOOT_ENTRIES.enabled() || FaultFence.CONFIG.removeMissingLootEntries)
+        if (!RecoveryCategory.LOOT_ENTRIES.enabled() || FaultFence.CONFIG.missingLootItemMode == MissingLootItemMode.REMOVE_ENTRY)
             return delegate.decode(ops, input);
 
         var item = missingItem(ops, input);
@@ -27,7 +28,7 @@ public record MissingLootItemCodec(Codec<LootPoolEntryContainer> delegate) imple
         if (item.isEmpty())
             return delegate.decode(ops, input);
 
-        if (PackFallbacks.defer(RecoveryCategory.LOOT_ENTRIES))
+        if (PackFallbacks.defer(RecoveryCategory.LOOT_ENTRIES) || FaultFence.CONFIG.missingLootItemMode == MissingLootItemMode.REJECT_RESOURCE)
             return DataResult.error(() -> "Missing loot item " + item.get());
 
         return decodeEmpty(ops, input).ifSuccess(result -> {
@@ -77,7 +78,7 @@ public record MissingLootItemCodec(Codec<LootPoolEntryContainer> delegate) imple
     private record EntriesCodec(MissingLootItemCodec entryCodec, Codec<List<LootPoolEntryContainer>> delegate) implements Codec<List<LootPoolEntryContainer>> {
         @Override
         public <T> DataResult<Pair<List<LootPoolEntryContainer>, T>> decode(DynamicOps<T> ops, T input) {
-            if (!RecoveryCategory.LOOT_ENTRIES.enabled() || !FaultFence.CONFIG.removeMissingLootEntries)
+            if (!RecoveryCategory.LOOT_ENTRIES.enabled() || FaultFence.CONFIG.missingLootItemMode != MissingLootItemMode.REMOVE_ENTRY)
                 return delegate.decode(ops, input);
 
             var entries = ops.getStream(input).result();
